@@ -14,26 +14,29 @@ class LaunchListViewModel: ObservableObject {
 
     private var cancellable: AnyCancellable?
     private let pageSize = 10
-    private var pager: GraphQLQueryPager<PaginationOutput<LaunchListQuery, LaunchListQuery>>?
+    private var pager: AsyncGraphQLQueryPager<PaginationOutput<LaunchListQuery, LaunchListQuery>>?
 
     init() {
         launches = []
-        setUpPaginaiton()
+        Task {
+            await setUpPaginaiton()
+        }
     }
 
     // MARK: - Launch Loading
 
-    private func setUpPaginaiton() {
+    private func setUpPaginaiton() async {
         let initialQueury = LaunchListQuery(
             pageSize: .some(pageSize),
             cursor: .none
         )
-        pager = GraphQLQueryPager(
+        pager = await AsyncGraphQLQueryPager(
             client: Network.shared.apollo,
             initialQuery: initialQueury,
             extractPageInfo: { [weak self] data in
+                guard let self else { return CursorBasedPagination.Forward(hasNext: false, endCursor: nil) }
                 DispatchQueue.main.async {
-                    self?.hasMore = data.launches.hasMore
+                    self.hasMore = data.launches.hasMore
                 }
                 print("cursor: data.launches: \(data.launches.launches.compactMap { $0?.mission?.name })")
                 return CursorBasedPagination.Forward(hasNext: data.launches.hasMore, endCursor: data.launches.cursor)
@@ -55,8 +58,6 @@ class LaunchListViewModel: ObservableObject {
         )
 
         cancellable = pager?.receive(on: DispatchQueue.main).sink { result in
-            self.isLoading = false
-
             switch result {
             case let .success(data):
                 let (output, source) = data
@@ -92,16 +93,18 @@ class LaunchListViewModel: ObservableObject {
         }
 
         if launches.isEmpty {
-            pager?.fetch()
+            await pager?.fetch()
         } else {
-            pager?.loadNext(completion: { [weak self] (error: PaginationError?) in
-                guard let self else {
-                    return
-                }
-                if let error {
+            do {
+                try await pager?.loadNext()
+            } catch {
+                await MainActor.run {
                     errorString = error.localizedDescription
                 }
-            })
+            }
+        }
+        await MainActor.run {
+            isLoading = false
         }
     }
 

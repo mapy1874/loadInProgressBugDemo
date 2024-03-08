@@ -15,12 +15,9 @@ struct LaunchListView: View {
                 List {
                     ForEach(0 ..< viewModel.launches.count, id: \.self) { index in
                         LaunchRow(launch: viewModel.launches[index])
-                            .onAppear {
-                                if index == viewModel.launches.count - 1,
-                                   !viewModel.isLoading {
-                                    Task {
-                                        await viewModel.loadMoreLaunchesIfTheyExist()
-                                    }
+                            .task {
+                                if index == viewModel.launches.count - 1, !viewModel.isLoading {
+                                    await viewModel.loadMoreLaunchesIfTheyExist()
                                 }
                             }
                     }
