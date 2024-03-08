@@ -5,4 +5,4 @@ Repro using the following steps:
 2. tap "reset the list"
 3. scroll down quickly and see the error message
 
-[![repro demo](loadInProgressError.gif)]
+<img src='https://github.com/mapy1874/loadInProgressBugDemo/blob/main/loadInProgressError.gif' title='Repro demo' width='400' alt='Repro demo' />
