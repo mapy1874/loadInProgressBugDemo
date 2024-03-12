@@ -4,7 +4,11 @@ import SwiftUI
 struct RocketReserverApp: App {
     var body: some Scene {
         WindowGroup {
-            LaunchListView()
+            NavigationView {
+                NavigationLink {
+                    LaunchListView()
+                } label: { Text("Go to list") }
+            }
         }
     }
 }
