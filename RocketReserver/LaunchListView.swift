@@ -1,51 +1,36 @@
 import SwiftUI
 
 struct LaunchListView: View {
-    @StateObject private var viewModel = LaunchListViewModel()
+  @StateObject private var viewModel = LaunchListViewModel(client: Network.shared.apollo)
 
-    var body: some View {
-        NavigationView {
-            VStack {
-                Text("Error: \(viewModel.errorString)")
-                Button("reset the list") {
-                    Task {
-                        await viewModel.reset()
-                    }
-                }
-                List {
-                    ForEach(0 ..< viewModel.launches.count, id: \.self) { index in
-                        LaunchRow(launch: viewModel.launches[index])
-                            .onAppear {
-                                if index == viewModel.launches.count - 1,
-                                   !viewModel.isLoading {
-                                    Task {
-                                        await viewModel.loadMoreLaunchesIfTheyExist()
-                                    }
-                                }
-                            }
-                    }
+  var body: some View {
+    NavigationView {
+      List(viewModel.launches) { launch in
+        LaunchRow(launch: launch)
+          .task {
+            guard launch.id == viewModel.launches.last?.id else { return }
+            viewModel.loadNextPage()
+          }
+          .listRowSeparator(.automatic)
 
-                    if !viewModel.hasMore {
-                        Text("No more items!")
-                    } else if viewModel.isLoading {
-                        Text("Loading...")
-                    } else {
-                        Text("Loaded!!!!!!")
-                    }
-                }
-                .onAppear {
-                    Task {
-                        await viewModel.loadMoreLaunchesIfTheyExist()
-                    }
-                }
-            }
-            .navigationTitle("Rocket Launches")
+        if launch.id == viewModel.launches.last?.id && viewModel.showTailSpinner {
+          HStack {
+            Spacer()
+            ProgressView("Loading")
+              .progressViewStyle(.circular)
+            Spacer()
+          }.listRowSeparator(.hidden)
         }
+      }
+      .refreshable {
+        viewModel.refresh()
+      }
+      .alert(viewModel.error?.localizedDescription ?? "", isPresented: $viewModel.showError, actions: {})
+      .navigationTitle("Rocket Launches")
     }
+  }
 }
 
-struct LaunchListView_Previews: PreviewProvider {
-    static var previews: some View {
-        LaunchListView()
-    }
+#Preview {
+  LaunchListView()
 }
